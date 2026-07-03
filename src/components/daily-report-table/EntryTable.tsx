@@ -12,7 +12,7 @@ import {
   useReactTable,
   type ColumnSizingState,
 } from "@tanstack/react-table";
-import { AlertTriangle, Link2, Plus } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Link2, Plus } from "lucide-react";
 import type { DailyReport } from "@/lib/data/useDailyReport";
 import type { EntryWithRelations } from "@/lib/types/database";
 import { STATUS_META, TYPE_META, TYPE_KEYS, STATUS_KEYS } from "@/lib/types/meta";
@@ -55,6 +55,8 @@ interface EntryTableProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   searchActive: boolean;
+  onPrevDay: () => void;
+  onNextDay: () => void;
 }
 
 export default function EntryTable({
@@ -65,6 +67,8 @@ export default function EntryTable({
   selectedId,
   onSelect,
   searchActive,
+  onPrevDay,
+  onNextDay,
 }: EntryTableProps) {
   const [showTags, setShowTags] = useState(false);
   const [openMenu, setOpenMenu] = useState<{
@@ -401,6 +405,14 @@ export default function EntryTable({
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
+        {/* 이전 날 collapsed preview */}
+        {!report.loading && report.adjacentDays && (
+          <DayPreview
+            direction="prev"
+            summary={report.adjacentDays.prev}
+            onClick={onPrevDay}
+          />
+        )}
         {report.loading ? (
           <TableSkeleton />
         ) : entries.length === 0 ? (
@@ -561,8 +573,51 @@ export default function EntryTable({
             </tbody>
           </table>
         )}
+        {/* 다음 날 collapsed preview */}
+        {!report.loading && report.adjacentDays && (
+          <DayPreview
+            direction="next"
+            summary={report.adjacentDays.next}
+            onClick={onNextDay}
+          />
+        )}
       </div>
     </div>
+  );
+}
+
+// 이전/다음 날 접힌 미리보기 바 (클릭 시 해당 날짜로 이동)
+function DayPreview({
+  direction,
+  summary,
+  onClick,
+}: {
+  direction: "prev" | "next";
+  summary: { date: string; count: number; entries: { start_at: string; end_at: string }[] };
+  onClick: () => void;
+}) {
+  const minutes = trackedMinutes(summary.entries);
+  return (
+    <button
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 bg-surface-alt px-3.5 py-1.5 text-[11.5px] text-ink-muted transition hover:bg-line-soft hover:text-ink-mid ${
+        direction === "prev" ? "border-b border-line-soft" : "border-t border-line-soft"
+      }`}
+    >
+      {direction === "prev" ? (
+        <ChevronUp size={12} className="flex-none" />
+      ) : (
+        <ChevronDown size={12} className="flex-none" />
+      )}
+      <span className="font-medium">{fmtDayHeading(summary.date)}</span>
+      {summary.count > 0 ? (
+        <span>
+          {summary.count}개 기록 · {fmtHuman(minutes)}
+        </span>
+      ) : (
+        <span className="text-ink-faint">기록 없음</span>
+      )}
+    </button>
   );
 }
 

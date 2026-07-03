@@ -73,8 +73,7 @@ Vercel 등 Next.js 호환 플랫폼에 배포할 수 있습니다. 환경변수 
 
 ## 알려진 제한 (v1)
 
-- Continuous day scroll은 날짜 내비게이션 + sticky day divider로 대체했습니다. (목표 문서의 MVP fallback 허용 범위)
-- 이전/다음 날 preview는 미구현입니다.
+- Continuous day scroll(가상화된 연속 스크롤)은 날짜 내비게이션 + sticky day divider + 이전/다음 날 collapsed preview로 대체했습니다. (목표 문서의 MVP fallback 허용 범위)
 - 주간 KPT 다이제스트는 placeholder입니다.
 - Subtype 이름 변경/보관 UI는 v1.1로 미뤘습니다. (생성은 가능)
 - CSV export는 미구현입니다. (목표 문서에서 optional)

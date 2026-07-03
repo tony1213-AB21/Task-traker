@@ -97,6 +97,8 @@ export default function DailyReportScreen() {
             selectedId={selectedId}
             onSelect={selectEntry}
             searchActive={search.trim().length > 0}
+            onPrevDay={() => moveDate(-1)}
+            onNextDay={() => moveDate(1)}
           />
         </main>
         <RightPanel

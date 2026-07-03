@@ -5,6 +5,7 @@
 // 사용자 환경설정(컬럼 폭)을 관리한다. 변경은 낙관적으로 반영하고 실패 시 재조회한다.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { addDays, format, parse } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import type {
   Entry,
@@ -37,6 +38,12 @@ export interface CreateEntryInput {
   content?: string;
 }
 
+export interface AdjacentDaySummary {
+  date: string;
+  count: number;
+  entries: Pick<Entry, "start_at" | "end_at">[];
+}
+
 export interface CreateTaskInput {
   title: string;
   list?: TaskList;
@@ -56,6 +63,10 @@ export function useDailyReport(date: string) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [subtypes, setSubtypes] = useState<Subtype[]>([]);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [adjacentDays, setAdjacentDays] = useState<{
+    prev: AdjacentDaySummary;
+    next: AdjacentDaySummary;
+  } | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,9 +89,19 @@ export function useDailyReport(date: string) {
 
   const fetchAll = useCallback(async () => {
     setError(null);
+    const d = parse(date, "yyyy-MM-dd", new Date());
+    const prevDate = format(addDays(d, -1), "yyyy-MM-dd");
+    const nextDate = format(addDays(d, 1), "yyyy-MM-dd");
     try {
-      const [entriesRes, tasksRes, projectsRes, subtypesRes, prefsRes, userRes] =
-        await Promise.all([
+      const [
+        entriesRes,
+        tasksRes,
+        projectsRes,
+        subtypesRes,
+        prefsRes,
+        userRes,
+        adjacentRes,
+      ] = await Promise.all([
           supabase
             .from("entries")
             .select(ENTRY_SELECT)
@@ -91,6 +112,11 @@ export function useDailyReport(date: string) {
           supabase.from("subtypes").select("*").eq("archived", false).order("name"),
           supabase.from("user_preferences").select("*").maybeSingle(),
           supabase.auth.getUser(),
+          // 이전/다음 날 collapsed preview용 요약
+          supabase
+            .from("entries")
+            .select("report_date, start_at, end_at")
+            .in("report_date", [prevDate, nextDate]),
         ]);
 
       const firstError =
@@ -110,6 +136,16 @@ export function useDailyReport(date: string) {
       );
       setUserId(userRes.data.user?.id ?? null);
       setUserEmail(userRes.data.user?.email ?? null);
+
+      const adjacent = (adjacentRes.data ?? []) as Pick<
+        Entry,
+        "report_date" | "start_at" | "end_at"
+      >[];
+      const pick = (target: string): AdjacentDaySummary => {
+        const list = adjacent.filter((e) => e.report_date === target);
+        return { date: target, count: list.length, entries: list };
+      };
+      setAdjacentDays({ prev: pick(prevDate), next: pick(nextDate) });
     } catch (e) {
       console.error(e);
       setError("데이터를 불러오지 못했습니다. 네트워크 상태를 확인해주세요.");
@@ -591,6 +627,7 @@ export function useDailyReport(date: string) {
     projects,
     subtypes,
     columnWidths,
+    adjacentDays,
     refetch,
     fetchEntries,
     createEntry,
