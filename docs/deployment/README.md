@@ -40,9 +40,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 - **service role 키는 절대 넣지 않습니다.** 프론트엔드 코드도 요구하지 않습니다.
 - `.env.local` / `.env`는 커밋하지 않습니다(`.gitignore`가 제외). 값은 Vercel 대시보드에만 입력합니다.
 
-## 3. Google OAuth Provider 설정 (기본 로그인)
+## 3. Google OAuth Provider 설정 (유일한 로그인)
 
-개인용 MVP에서는 Supabase 기본 이메일 발송 rate limit 때문에 **Google OAuth가 기본 로그인**입니다.
+Supabase 기본 이메일 발송 rate limit 때문에 로그인은 **Google OAuth 전용**입니다. 로그인 화면에는 이메일 magic link UI가 없습니다.
 
 ### 3.1 Google Cloud Console
 
@@ -65,24 +65,19 @@ Supabase Dashboard → Authentication → URL Configuration:
 
 - **Site URL**: `https://<your-vercel-domain>` (프로덕션 도메인)
 - **Redirect URLs (allow list)** 에 추가:
-  - `https://<your-vercel-domain>/auth/callback` — **Google OAuth 콜백(앱 라우트, 기본)**
-  - `https://<your-vercel-domain>/auth/confirm` — 이메일 magic link 확인 라우트(보조)
-  - `http://localhost:3000/auth/callback` — 로컬 개발 (OAuth)
-  - `http://localhost:3000/auth/confirm` — 로컬 개발 (이메일)
+  - `https://<your-vercel-domain>/auth/callback` — **Google OAuth 콜백(앱 라우트)**
+  - `http://localhost:3000/auth/callback` — 로컬 개발
   - Preview 배포도 쓸 경우: `https://*.vercel.app/auth/callback` (와일드카드)
 
-> 앱은 OAuth에서 `redirectTo = ${origin}/auth/callback`, 이메일에서 `emailRedirectTo = ${origin}/auth/confirm`을 사용합니다. 배포 도메인의 두 경로가 allow list에 있어야 로그인이 동작합니다.
-
-또한 Authentication → Sign In / Providers → Email 에서 **Confirm email이 켜진 상태**를 기준으로 테스트합니다.
+> 앱은 OAuth에서 `redirectTo = ${origin}/auth/callback`을 사용합니다. 배포 도메인의 이 경로가 allow list에 있어야 로그인이 동작합니다. 이메일 magic link는 로그인 UI에서 사용하지 않습니다(관련 `/auth/confirm` 라우트는 남아 있으나 UI에서 호출되지 않음).
 
 ## 4. 배포 후 실제 사용 테스트 체크리스트
 
 ### 인증
 - [ ] 배포 도메인 접속 시 `/login`으로 리다이렉트된다.
-- [ ] **"Google로 계속하기"** → Google 동의 화면 → `/auth/callback`을 거쳐 `/app`으로 이동한다.
+- [ ] 로그인 화면에 **"Google로 계속하기"** 버튼만 있고 이메일 로그인 UI는 없다.
+- [ ] "Google로 계속하기" → Google 동의 화면 → `/auth/callback`을 거쳐 `/app`으로 이동한다.
 - [ ] Google 로그인 취소/실패 시 `/login?error=oauth`로 돌아오고 오류 메시지가 표시된다.
-- [ ] (보조) "이메일로 로그인"을 펼쳐 링크 전송 → 메일 수신 → 링크 클릭 시 `/auth/confirm` → `/app`.
-- [ ] (보조) 이메일 발송이 rate limit(429)이면 "Supabase 이메일 발송 제한…" 안내가 뜬다.
 - [ ] 로그아웃 후 `/app` 직접 접근 시 `/login`으로 막힌다.
 
 ### 메인 표 / Entry
