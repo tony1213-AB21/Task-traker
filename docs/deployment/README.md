@@ -40,18 +40,38 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 - **service role 키는 절대 넣지 않습니다.** 프론트엔드 코드도 요구하지 않습니다.
 - `.env.local` / `.env`는 커밋하지 않습니다(`.gitignore`가 제외). 값은 Vercel 대시보드에만 입력합니다.
 
-## 3. 배포 후 Supabase Auth URL Configuration
+## 3. Google OAuth Provider 설정 (기본 로그인)
+
+개인용 MVP에서는 Supabase 기본 이메일 발송 rate limit 때문에 **Google OAuth가 기본 로그인**입니다.
+
+### 3.1 Google Cloud Console
+
+1. [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)에서 **OAuth 2.0 Client ID** 생성 (Application type: **Web application**).
+2. **Authorized redirect URIs**에 Supabase 콜백을 추가:
+   ```text
+   https://<project-ref>.supabase.co/auth/v1/callback
+   ```
+   (이 URI는 Supabase가 Google로부터 code를 받는 주소이며, 앱의 `/auth/callback`과는 다릅니다.)
+3. 발급된 **Client ID / Client Secret**을 복사합니다.
+
+### 3.2 Supabase
+
+1. Authentication → Sign In / Providers → **Google** 활성화, 위 Client ID / Client Secret 입력.
+2. Client Secret은 Supabase에만 저장되며 **프론트엔드에 노출되지 않습니다.** (service role 키와 무관)
+
+## 4. Supabase Auth URL Configuration
 
 Supabase Dashboard → Authentication → URL Configuration:
 
 - **Site URL**: `https://<your-vercel-domain>` (프로덕션 도메인)
 - **Redirect URLs (allow list)** 에 추가:
-  - `https://<your-vercel-domain>/auth/confirm` — 매직링크 확인 라우트
-  - `https://<your-vercel-domain>/**` — (선택) 하위 경로 허용
-  - `http://localhost:3000/auth/confirm` — 로컬 개발용 유지
-  - Preview 배포도 쓸 경우: `https://*.vercel.app/auth/confirm` (와일드카드)
+  - `https://<your-vercel-domain>/auth/callback` — **Google OAuth 콜백(앱 라우트, 기본)**
+  - `https://<your-vercel-domain>/auth/confirm` — 이메일 magic link 확인 라우트(보조)
+  - `http://localhost:3000/auth/callback` — 로컬 개발 (OAuth)
+  - `http://localhost:3000/auth/confirm` — 로컬 개발 (이메일)
+  - Preview 배포도 쓸 경우: `https://*.vercel.app/auth/callback` (와일드카드)
 
-> 앱은 `emailRedirectTo`로 `${window.location.origin}/auth/confirm`을 사용합니다. 배포 도메인의 이 경로가 allow list에 있어야 로그인 링크가 동작합니다.
+> 앱은 OAuth에서 `redirectTo = ${origin}/auth/callback`, 이메일에서 `emailRedirectTo = ${origin}/auth/confirm`을 사용합니다. 배포 도메인의 두 경로가 allow list에 있어야 로그인이 동작합니다.
 
 또한 Authentication → Sign In / Providers → Email 에서 **Confirm email이 켜진 상태**를 기준으로 테스트합니다.
 
@@ -59,9 +79,10 @@ Supabase Dashboard → Authentication → URL Configuration:
 
 ### 인증
 - [ ] 배포 도메인 접속 시 `/login`으로 리다이렉트된다.
-- [ ] 이메일 입력 후 로그인 링크 전송 → 메일 수신을 확인한다.
-- [ ] 메일의 로그인 링크를 클릭하면 `/auth/confirm`을 거쳐 `/app`으로 이동한다.
-- [ ] (또는) 메일의 인증 코드로 로그인이 된다.
+- [ ] **"Google로 계속하기"** → Google 동의 화면 → `/auth/callback`을 거쳐 `/app`으로 이동한다.
+- [ ] Google 로그인 취소/실패 시 `/login?error=oauth`로 돌아오고 오류 메시지가 표시된다.
+- [ ] (보조) "이메일로 로그인"을 펼쳐 링크 전송 → 메일 수신 → 링크 클릭 시 `/auth/confirm` → `/app`.
+- [ ] (보조) 이메일 발송이 rate limit(429)이면 "Supabase 이메일 발송 제한…" 안내가 뜬다.
 - [ ] 로그아웃 후 `/app` 직접 접근 시 `/login`으로 막힌다.
 
 ### 메인 표 / Entry

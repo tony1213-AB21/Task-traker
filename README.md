@@ -5,6 +5,7 @@
 - Daily Report 표가 첫 화면이자 중심 화면입니다.
 - 오른쪽 패널(Detail / KPT+ / To-do / Analysis / Projects)이 선택한 Entry를 편집하고 해석합니다.
 - KPT+는 하루 요약이 아니라 선택한 Entry에 붙습니다.
+- 로그인은 **Google OAuth**가 기본이고, 이메일 magic link/OTP는 보조 옵션입니다.
 
 ## 기술 스택
 
@@ -23,7 +24,12 @@ npm install
 1. [Supabase](https://supabase.com/dashboard)에서 프로젝트를 만듭니다.
 2. SQL Editor에서 `supabase/schema.sql`을 실행합니다. (테이블 + RLS 정책 + 프로필 트리거)
    - Supabase CLI를 쓴다면 `supabase/migrations/0001_initial_schema.sql`을 `supabase db push`로 적용해도 됩니다.
-3. Authentication → 이메일 로그인(Magic Link/OTP)이 기본 활성화되어 있는지 확인합니다.
+3. **Google OAuth 활성화** (기본 로그인 방식):
+   - [Google Cloud Console](https://console.cloud.google.com/apis/credentials)에서 OAuth 2.0 클라이언트 ID를 만듭니다. (Application type: Web application)
+   - Authorized redirect URI에 `https://<project-ref>.supabase.co/auth/v1/callback`을 추가합니다.
+   - 발급된 **Client ID / Client Secret**을 Supabase → Authentication → Sign In / Providers → **Google**에 입력하고 활성화합니다.
+   - Supabase → Authentication → URL Configuration의 Redirect URLs에 `http://localhost:3000/auth/callback`(로컬)과 배포 도메인의 `/auth/callback`을 추가합니다.
+4. (보조) 이메일 로그인(Magic Link/OTP)도 기본 활성화되어 있습니다. Supabase 기본 이메일 발송은 rate limit이 낮으므로 개인용 MVP에서는 Google 로그인을 권장합니다.
 
 ### 3. 환경변수
 
@@ -42,7 +48,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxx
 npm run dev
 ```
 
-`http://localhost:3000` → 로그인 화면 → 이메일 magic link 또는 인증 코드로 로그인 → `/app`.
+`http://localhost:3000` → 로그인 화면 → **Google로 계속하기**(기본) 또는 이메일 magic link/코드(보조) → `/app`.
 
 ### 5. (선택) 데모 데이터
 
