@@ -1,0 +1,15 @@
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies and build outputs
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# Local deployment/tooling state
+.vercel/
+.agents/
