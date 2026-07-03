@@ -9,6 +9,7 @@ node_modules/
 out/
 dist/
 build/
+*.tsbuildinfo
 
 # Local deployment/tooling state
 .vercel/
