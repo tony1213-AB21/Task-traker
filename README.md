@@ -80,4 +80,8 @@ Vercel 등 Next.js 호환 플랫폼에 배포할 수 있습니다. 환경변수 
 - 전체 분석/전체 프로젝트 페이지는 단순 페이지입니다.
 - To-do의 "타이머 시작"은 미구현입니다. (목표 문서에서 optional)
 
+## 검증
+
+라이브 Supabase 대상 E2E 검증 결과는 `docs/verification/2026-07-04-e2e-report.md`에 있습니다. (인증·CRUD 19/19, 교차 사용자 RLS, 시간 로직 17/17, build/typecheck/lint 통과)
+
 문서 구조와 개발 원칙은 `AGENTS.md`, 요구사항은 `goal/DAILY_REPORT_BUILD_GOAL.md`를 참고하세요.
