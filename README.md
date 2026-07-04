@@ -64,7 +64,11 @@ npm run dev
 
 ## 배포
 
-Vercel 등 Next.js 호환 플랫폼에 배포할 수 있습니다. 환경변수 두 개를 플랫폼에 설정하고, Supabase Auth의 Site URL/Redirect URL에 배포 도메인(`https://<domain>/auth/confirm`)을 추가하세요.
+- **Production URL**: https://task-traker-3gh1.vercel.app
+- 배포 상세와 Google OAuth/URL 설정은 `docs/deployment/README.md`를 참고하세요.
+- Vercel 환경변수는 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 두 개만 사용합니다. Supabase Auth의 Site URL/Redirect URL에 배포 도메인의 `/auth/callback`을 추가하세요.
+
+> **Deprecated**: `task-tracker-theta.vercel.app`은 이 프로젝트의 앱이 **아닙니다**(무관한 옛 Vue/Bulma "Task Tracker" 앱). 사용하지 마세요. 현재 Production은 위 URL입니다.
 
 ## 데이터베이스
 
