@@ -4,6 +4,17 @@ import { NextResponse, type NextRequest } from "next/server";
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 export async function updateSession(request: NextRequest) {
+  // OAuth code가 루트 `/?code=...`로 잘못 도착하는 경우(예: Supabase Site URL
+  // fallback) 세션 교환 라우트로 그대로 넘긴다. code 등 쿼리는 보존된다.
+  {
+    const { pathname, searchParams } = request.nextUrl;
+    if (pathname === "/" && searchParams.has("code")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/auth/callback";
+      return NextResponse.redirect(url);
+    }
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

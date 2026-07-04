@@ -104,7 +104,29 @@ Supabase Dashboard → Authentication → URL Configuration:
 ### 보안(가능 범위)
 - [ ] 다른 계정으로 로그인하면 이전 계정의 Entry/Project/To-do가 보이지 않는다.
 
-## 5. 참고
+## 5. 트러블슈팅
+
+### 로그인 후 예전 Vue/Bulma "Task Tracker" 화면이 뜨거나, `?code=`가 루트 `/`로 돌아온다
+
+**증상**: Google 로그인 후 `https://<domain>/?code=...#/`로 이동하고, Daily Report가 아니라 큰 "Task Tracker" 로고 / Enable Dark Mode / TASKS·PROJECTS / "There is no tasks" 같은 화면이 보인다.
+
+**원인 (코드 아님, 인프라)**:
+
+1. **해당 도메인이 우리 Next.js 앱이 아닌 다른 Vercel 프로젝트(옛 Vue 앱)에 연결되어 있음.** 확인법: `curl https://<domain>/app` 이 우리 앱이면 `307 → /login`이어야 하는데, 옛 앱이면 `200` + `bulma`/`chunk-vendors`가 보인다. HTML에 `_next`가 없으면 우리 앱이 아니다. (우리 저장소에는 Vue/Bulma/`chunk-vendors`/service worker/`index.html`이 전혀 없다 — `git grep`으로 확인됨.)
+2. **Supabase가 redirectTo를 allow-list에서 못 찾아 Site URL(루트)로 fallback.** 그래서 `/auth/callback`이 아니라 `/?code=`로 온다. `#/`은 그 Vue 앱의 hash router가 붙인 것.
+
+**해결 (Vercel/Supabase 대시보드)**:
+
+1. Vercel에서 이 도메인이 가리키는 프로젝트를 **우리 저장소(`tony1213-AB21/Task-traker`)** 로 교체하거나, 우리 저장소로 새 프로젝트를 만들어 도메인을 그쪽으로 옮긴다. 환경변수는 `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` 두 개만.
+2. 재배포 후 `curl https://<domain>/login` 에 `_next`와 "Google로 계속하기"가 보이고 `chunk-vendors`/`bulma`가 없어야 한다.
+3. 옛 Vue 앱의 **service worker/캐시가 브라우저에 남아 있으면** 시크릿 창으로 접속하거나, DevTools → Application → Service Workers → Unregister + Clear storage 후 새로고침한다. (우리 앱은 service worker를 등록하지 않으므로, 새 배포가 뜨면 자연히 사라진다.)
+4. Supabase → Authentication → URL Configuration:
+   - **Site URL** 을 우리 앱 도메인으로 설정.
+   - **Redirect URLs** 에 `https://<domain>/auth/callback` 을 추가(정확히 이 경로가 allow-list에 있어야 루트 fallback 없이 `/auth/callback?code=`로 온다).
+
+> 코드 측 안전장치: 혹시 `?code=`가 루트로 오더라도 미들웨어가 `/auth/callback?code=...`로 넘겨 세션 교환을 처리한다(`src/lib/supabase/middleware.ts`). 단, 이 안전장치는 **도메인이 우리 앱을 서빙할 때만** 동작한다.
+
+## 6. 참고
 
 - 스키마/RLS: `supabase/schema.sql` (SQL Editor에서 실행)
 - E2E 검증 결과: `docs/verification/2026-07-04-e2e-report.md`
