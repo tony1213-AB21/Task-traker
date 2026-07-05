@@ -126,6 +126,26 @@ Supabase Dashboard → Authentication → URL Configuration:
 
 > 코드 측 안전장치: 혹시 `?code=`가 루트로 오더라도 미들웨어가 `/auth/callback?code=...`로 넘겨 세션 교환을 처리한다(`src/lib/supabase/middleware.ts`). 단, 이 안전장치는 **도메인이 우리 앱을 서빙할 때만** 동작한다.
 
+### 본인 외 Google 계정으로 로그인이 거부된다 (KAN-25)
+
+**증상**: 소유자 계정은 정상 로그인되지만, 다른 Google 계정은 Google 동의 단계에서 차단된다 ("액세스 차단됨: 이 앱은 Google의 확인 절차를 완료하지 않았습니다" 또는 `403 access_denied`). 앱 화면에 도달하기 전 Google에서 거부되므로 앱/Supabase 로그에는 남지 않는다.
+
+**원인 (코드 아님, Google Cloud 설정)**: OAuth **동의 화면(consent screen)의 게시 상태가 "테스트(Testing)"** 이기 때문. Testing 상태에서는 Audience → Test users 목록에 등록된 계정만 OAuth를 완료할 수 있다.
+
+소거 근거:
+- 코드에는 계정/도메인 제한이 없다 — `LoginCard`는 `provider: "google"`만 지정하고, 이메일 필터·allowlist 코드가 없다.
+- Supabase Google 프로바이더도 기본 설정은 계정 제한이 없다.
+- Redirect URL 누락이었다면 소유자 계정 로그인도 실패했을 것이므로 해당 없음.
+
+**해결 (Google Cloud Console → APIs & Services → OAuth consent screen)** — 둘 중 하나:
+
+1. **테스트 사용자 추가** (소수 검증용): Audience → Test users에 대상 Google 계정 추가 (최대 100명). 즉시 적용.
+2. **프로덕션 게시** (누구나 로그인): Publishing status를 **In production**으로 변경. 요청 scope가 기본(openid/email/profile)뿐이므로 Google 검증(verification) 없이 게시 가능하다. 게시 후 처음에는 "확인되지 않은 앱" 경고가 뜰 수 있으나 사용자가 계속 진행할 수 있다.
+
+**확인 절차**:
+1. 신규 Google 계정으로 "Google로 계속하기" → `/app` 진입 성공
+2. 데이터 격리: A 계정의 Entry/Project/To-do가 B 계정에서 보이지 않아야 한다 (RLS `auth.uid() = user_id` — 2026-07-04 E2E에서 교차 사용자 차단 검증됨, 신규 계정으로 육안 재확인)
+
 ## 6. 참고
 
 - 스키마/RLS: `supabase/schema.sql` (SQL Editor에서 실행)
