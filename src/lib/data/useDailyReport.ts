@@ -36,6 +36,7 @@ function normalizeEntries(list: EntryWithRelations[]): EntryWithRelations[] {
   return list.map((e) => ({
     ...e,
     entry_tasks: e.entry_tasks.filter((et) => !et.tasks?.deleted_at),
+    kpt_notes: e.kpt_notes.filter((k) => !k.deleted_at),
   }));
 }
 
@@ -452,6 +453,8 @@ export function useDailyReport(date: string) {
               user_id: userId,
               entry_id: entryId,
               ...patch,
+              // 소프트 삭제된 노트가 있으면 재저장으로 되살린다 (KAN-23)
+              deleted_at: null,
               updated_at: new Date().toISOString(),
             },
             { onConflict: "user_id,entry_id" }
@@ -472,6 +475,34 @@ export function useDailyReport(date: string) {
       }
     },
     [supabase, userId, beginOp, endOp, recover]
+  );
+
+  // KPT+ 소프트 삭제 (KAN-23):
+  // - kpt_notes.deleted_at만 기록하고 행은 남긴다 (entry_id unique 행 재사용).
+  // - 같은 Entry에 다시 저장하면 saveKpt의 upsert가 deleted_at을 null로 되돌린다.
+  //   이때 이전 내용이 되살아나지 않도록 패널은 네 필드를 모두 덮어쓴다.
+  const deleteKpt = useCallback(
+    async (entryId: string) => {
+      beginOp();
+      const prev = entries;
+      setEntries((cur) =>
+        cur.map((e) => (e.id === entryId ? { ...e, kpt_notes: [] } : e))
+      );
+      try {
+        const { error } = await supabase
+          .from("kpt_notes")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("entry_id", entryId);
+        if (error) throw error;
+      } catch (e) {
+        console.error(e);
+        setEntries(prev);
+        await recover();
+      } finally {
+        endOp();
+      }
+    },
+    [supabase, entries, beginOp, endOp, recover]
   );
 
   // ---------- Tasks ----------
@@ -742,6 +773,7 @@ export function useDailyReport(date: string) {
     updateLink,
     deleteLink,
     saveKpt,
+    deleteKpt,
     createTask,
     updateTask,
     deleteTask,

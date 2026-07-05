@@ -108,6 +108,7 @@ export interface KptNote {
   problem_text: string | null;
   try_text: string | null;
   plus_text: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }

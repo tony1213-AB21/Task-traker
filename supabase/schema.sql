@@ -273,6 +273,8 @@ create table if not exists public.kpt_notes (
   problem_text text,
   try_text text,
   plus_text text,
+  -- 소프트 삭제 (KAN-23): 재저장 시 upsert가 null로 되돌려 행을 재사용.
+  deleted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(user_id, entry_id)
