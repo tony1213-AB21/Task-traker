@@ -667,6 +667,22 @@ export function useDailyReport(date: string) {
     [tasks, updateTask]
   );
 
+  // To-do 상태 3단계 순환: not_started → in_progress → done → not_started (KAN-33)
+  const cycleTaskStatus = useCallback(
+    async (id: string) => {
+      const task = tasks.find((t) => t.id === id);
+      if (!task) return;
+      const order = ["not_started", "in_progress", "done"] as const;
+      const idx = order.indexOf(task.status as (typeof order)[number]);
+      const next = order[(idx + 1) % order.length];
+      await updateTask(id, {
+        status: next,
+        completed_at: next === "done" ? new Date().toISOString() : null,
+      });
+    },
+    [tasks, updateTask]
+  );
+
   // ---------- Projects / Subtypes ----------
 
   const createProject = useCallback(
@@ -830,6 +846,7 @@ export function useDailyReport(date: string) {
     updateTask,
     deleteTask,
     toggleTaskDone,
+    cycleTaskStatus,
     createProject,
     updateProject,
     deleteProject,
