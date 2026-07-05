@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${base}/app`);
+      // login=1: 클라이언트에서 login_completed 이벤트 1회 발화용 (KAN-13)
+      return NextResponse.redirect(`${base}/app?login=1`);
     }
   }
 

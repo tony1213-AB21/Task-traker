@@ -21,6 +21,7 @@ import type {
 } from "@/lib/types/database";
 import { PROJECT_COLORS } from "@/lib/types/meta";
 import { combineDateTime } from "@/lib/time/format";
+import { durationBucket, track } from "@/lib/analytics/track";
 
 const ENTRY_SELECT =
   "*, entry_links(*), kpt_notes(*), entry_tasks(task_id, tasks(*))";
@@ -201,6 +202,8 @@ export function useDailyReport(date: string) {
     async (input: CreateEntryInput): Promise<EntryWithRelations | null> => {
       if (!userId) return null;
       beginOp();
+      // 현재 UI는 생성 폼 없이 즉시 저장하므로 "생성 시도 시작" 시점으로 발화 (KAN-3 검수 가정 B)
+      track("entry_create_started");
       try {
         const start = combineDateTime(date, input.startHM);
         const end = combineDateTime(date, input.endHM);
@@ -222,6 +225,15 @@ export function useDailyReport(date: string) {
         if (error) throw error;
         const created = data as unknown as EntryWithRelations;
         setEntries((prev) => sortEntries([...prev, created]));
+        // 신규 생성 저장 성공 시에만 발화. 자동저장(updateEntry)은 과다 발화 방지를 위해 제외 (KAN-3 검수 가정 A)
+        track("entry_saved", {
+          duration_bucket: durationBucket(
+            Math.round((end.getTime() - start.getTime()) / 60000)
+          ),
+          has_todo: false, // 생성 직후에는 연결된 To-do 없음
+          has_kpt: entries.some((e) => e.kpt_notes.length > 0), // 해당 날짜 기준 (KAN-3 검수 가정 C)
+          entry_count: entries.length + 1,
+        });
         return created;
       } catch (e) {
         console.error(e);
@@ -231,7 +243,7 @@ export function useDailyReport(date: string) {
         endOp();
       }
     },
-    [supabase, userId, date, beginOp, endOp, recover]
+    [supabase, userId, date, entries, beginOp, endOp, recover]
   );
 
   const updateEntry = useCallback(
@@ -290,6 +302,7 @@ export function useDailyReport(date: string) {
           .from("entry_tasks")
           .upsert({ entry_id: entryId, task_id: taskId, user_id: userId });
         if (error) throw error;
+        track("todo_attached_to_entry");
         const task = tasks.find((t) => t.id === taskId) ?? null;
         setEntries((cur) =>
           cur.map((e) =>
@@ -445,6 +458,10 @@ export function useDailyReport(date: string) {
     ) => {
       if (!userId) return;
       beginOp();
+      // blur마다 저장되므로 첫 작성(노트 없음 → 있음) 시에만 kpt_saved 발화 (KAN-13, 중복 방지)
+      const existed = entries.some(
+        (e) => e.id === entryId && e.kpt_notes.length > 0
+      );
       try {
         const { data, error } = await supabase
           .from("kpt_notes")
@@ -462,6 +479,7 @@ export function useDailyReport(date: string) {
           .select("*")
           .single();
         if (error) throw error;
+        if (!existed) track("kpt_saved");
         setEntries((cur) =>
           cur.map((e) =>
             e.id === entryId ? { ...e, kpt_notes: [data as KptNote] } : e
@@ -474,7 +492,7 @@ export function useDailyReport(date: string) {
         endOp();
       }
     },
-    [supabase, userId, beginOp, endOp, recover]
+    [supabase, userId, entries, beginOp, endOp, recover]
   );
 
   // KPT+ 소프트 삭제 (KAN-23):
@@ -526,6 +544,8 @@ export function useDailyReport(date: string) {
           .select("*")
           .single();
         if (error) throw error;
+        // project_type은 프로젝트→유형 매핑 규칙 확정 전이라 v1에서는 보내지 않는다 (KAN-3 검수)
+        track("todo_created");
         setTasks((cur) => [...cur, data as Task]);
         return data as Task;
       } catch (e) {
