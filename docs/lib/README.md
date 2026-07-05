@@ -22,9 +22,13 @@
 - Project 삭제는 소프트 삭제입니다. `projects.deleted_at`만 기록하고 행은 남깁니다.
   - Entry/Task의 `project_id`는 유지합니다 (기록 보존). 조회에서 삭제된 프로젝트가 빠지므로 화면에서는 칩이 비어 보입니다.
   - `deleted_at`을 null로 되돌리면 기존 연결이 그대로 복구됩니다.
+- To-do 삭제도 소프트 삭제입니다. `tasks.deleted_at`만 기록하고 행은 남깁니다.
+  - `entry_tasks` 연결 행은 지우지 않습니다 (기록 보존). 목록과 Entry 연결 칩 모두에서 숨깁니다.
+  - `deleted_at`을 null로 되돌리면 Entry 연결까지 그대로 복구됩니다.
 - Entry와 Link 삭제는 기존 동작대로 하드 삭제입니다 (KAN-23 범위 밖, 알려진 제한).
 
 ## 변경 로그
 
 - 2026-07-04: Daily Report MVP 데이터 계층 생성
 - 2026-07-05: Project 수정/소프트 삭제 추가 (KAN-23)
+- 2026-07-05: To-do 수정 폼/소프트 삭제 추가 (KAN-23)

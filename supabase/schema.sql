@@ -132,6 +132,8 @@ create table if not exists public.tasks (
   due_date date,
   estimated_minutes integer,
   completed_at timestamptz,
+  -- 소프트 삭제 (KAN-23): 행을 지우지 않고 타임스탬프만 기록. entry_tasks 연결 행은 유지.
+  deleted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

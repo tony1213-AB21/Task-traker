@@ -31,6 +31,14 @@ function sortEntries(list: EntryWithRelations[]): EntryWithRelations[] {
   );
 }
 
+// 소프트 삭제된 연결 데이터는 조인 결과에서 숨긴다 (DB 행은 유지, KAN-23).
+function normalizeEntries(list: EntryWithRelations[]): EntryWithRelations[] {
+  return list.map((e) => ({
+    ...e,
+    entry_tasks: e.entry_tasks.filter((et) => !et.tasks?.deleted_at),
+  }));
+}
+
 export interface CreateEntryInput {
   startHM: string;
   endHM: string;
@@ -84,7 +92,7 @@ export function useDailyReport(date: string) {
       .eq("report_date", date)
       .order("start_at", { ascending: true });
     if (error) throw error;
-    setEntries((data ?? []) as unknown as EntryWithRelations[]);
+    setEntries(normalizeEntries((data ?? []) as unknown as EntryWithRelations[]));
   }, [supabase, date]);
 
   const fetchAll = useCallback(async () => {
@@ -107,7 +115,11 @@ export function useDailyReport(date: string) {
             .select(ENTRY_SELECT)
             .eq("report_date", date)
             .order("start_at", { ascending: true }),
-          supabase.from("tasks").select("*").order("created_at"),
+          supabase
+            .from("tasks")
+            .select("*")
+            .is("deleted_at", null)
+            .order("created_at"),
           supabase
             .from("projects")
             .select("*")
@@ -131,7 +143,9 @@ export function useDailyReport(date: string) {
         prefsRes.error;
       if (firstError) throw firstError;
 
-      setEntries((entriesRes.data ?? []) as unknown as EntryWithRelations[]);
+      setEntries(
+        normalizeEntries((entriesRes.data ?? []) as unknown as EntryWithRelations[])
+      );
       setTasks(tasksRes.data ?? []);
       setProjects(projectsRes.data ?? []);
       setSubtypes(subtypesRes.data ?? []);
@@ -528,6 +542,40 @@ export function useDailyReport(date: string) {
     [supabase, tasks, beginOp, endOp, recover]
   );
 
+  // To-do 소프트 삭제 (KAN-23 연결 데이터 규칙):
+  // - tasks.deleted_at만 기록하고 행은 남긴다.
+  // - entry_tasks 연결 행은 지우지 않는다 (기록 보존). 화면에서는 목록과
+  //   Entry 연결 칩 모두에서 숨기고, deleted_at을 null로 되돌리면 연결이 복구된다.
+  const deleteTask = useCallback(
+    async (id: string) => {
+      beginOp();
+      const prevTasks = tasks;
+      const prevEntries = entries;
+      setTasks((cur) => cur.filter((t) => t.id !== id));
+      setEntries((cur) =>
+        cur.map((e) => ({
+          ...e,
+          entry_tasks: e.entry_tasks.filter((et) => et.task_id !== id),
+        }))
+      );
+      try {
+        const { error } = await supabase
+          .from("tasks")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      } catch (e) {
+        console.error(e);
+        setTasks(prevTasks);
+        setEntries(prevEntries);
+        await recover();
+      } finally {
+        endOp();
+      }
+    },
+    [supabase, tasks, entries, beginOp, endOp, recover]
+  );
+
   const toggleTaskDone = useCallback(
     async (id: string) => {
       const task = tasks.find((t) => t.id === id);
@@ -696,6 +744,7 @@ export function useDailyReport(date: string) {
     saveKpt,
     createTask,
     updateTask,
+    deleteTask,
     toggleTaskDone,
     createProject,
     updateProject,

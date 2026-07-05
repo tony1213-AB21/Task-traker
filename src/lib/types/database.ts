@@ -68,6 +68,7 @@ export interface Task {
   due_date: string | null;
   estimated_minutes: number | null;
   completed_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
