@@ -4,7 +4,7 @@
 // 하루 요약이 아니라 Entry 단위로 작성한다.
 
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Trash2 } from "lucide-react";
 import type { DailyReport } from "@/lib/data/useDailyReport";
 import type { EntryWithRelations, KptNote } from "@/lib/types/database";
 import { fmtHM, fmtTimeRange, minutesBetween } from "@/lib/time/format";
@@ -93,8 +93,16 @@ function KptBody({
   function commit(field: KptField) {
     const stored = (kpt?.[field] ?? "") as string;
     if (values[field] !== stored) {
-      report.saveKpt(entry.id, { [field]: values[field] });
+      // 노트가 없으면(소프트 삭제 포함) 네 필드를 모두 보내
+      // 되살아난 행에 이전 내용이 남지 않게 한다 (KAN-23)
+      report.saveKpt(entry.id, kpt ? { [field]: values[field] } : values);
     }
+  }
+
+  function removeKpt() {
+    if (!window.confirm("이 기록의 KPT+를 삭제할까요?")) return;
+    report.deleteKpt(entry.id);
+    setValues({ keep_text: "", problem_text: "", try_text: "", plus_text: "" });
   }
 
   async function convertPlusToTodo() {
@@ -119,11 +127,22 @@ function KptBody({
     <div className="flex flex-col gap-3 px-4 py-4">
       {/* 선택 Entry 요약 */}
       <div className="rounded-lg border border-line bg-surface-alt px-3 py-2.5">
-        <p className="mb-0.5 text-[11px] font-semibold text-ink-muted">
-          Entry #{String(index + 1).padStart(2, "0")} ·{" "}
-          {fmtTimeRange(entry.start_at, entry.end_at)} ·{" "}
-          {fmtHM(minutesBetween(entry.start_at, entry.end_at))}
-        </p>
+        <div className="mb-0.5 flex items-center justify-between">
+          <p className="text-[11px] font-semibold text-ink-muted">
+            Entry #{String(index + 1).padStart(2, "0")} ·{" "}
+            {fmtTimeRange(entry.start_at, entry.end_at)} ·{" "}
+            {fmtHM(minutesBetween(entry.start_at, entry.end_at))}
+          </p>
+          {kpt && (
+            <button
+              onClick={removeKpt}
+              title="KPT+ 삭제"
+              className="rounded-md p-1 text-ink-faint transition hover:bg-[#f8ecea] hover:text-[#9a3b32]"
+            >
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
         <p className="truncate text-[12.5px] text-ink">
           <span
             className="mr-1.5 inline-block rounded px-1.5 py-px text-[11px] font-medium align-[1px]"
