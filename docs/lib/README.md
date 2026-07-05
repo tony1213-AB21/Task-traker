@@ -17,6 +17,7 @@
 - Duration은 저장하지 않고 `start_at`/`end_at`에서 계산합니다.
 - Untracked = 첫 기록 시작과 마지막 기록 종료 사이의 빈 시간 (24시간 기준 아님).
 - 자정 넘김 Entry는 시작 날짜(report_date)에 속합니다.
+- 동일 content 연속 Entry 그룹(KAN-27) = 같은 report_date에서 content(공백 제거)가 같고 done이 아닌 Entry. Done 처리 시 확인 후 일괄 완료할 수 있습니다.
 
 ## 삭제 규칙 (KAN-23)
 
@@ -38,3 +39,4 @@
 - 2026-07-05: To-do 수정 폼/소프트 삭제 추가 (KAN-23)
 - 2026-07-05: KPT+ 소프트 삭제 추가 (KAN-23)
 - 2026-07-06: analytics 트래킹 유틸 추가 (KAN-12)
+- 2026-07-06: 동일 content 연속 Entry 일괄 Done 처리 (KAN-27)
