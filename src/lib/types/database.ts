@@ -40,6 +40,8 @@ export interface Project {
   status: string;
   color: string | null;
   description: string | null;
+  // Analytics 안전 버킷 (ab21/company/sorimemory/soriedu/kuji/etc) — 이벤트에는 이 값만 전송
+  analytics_bucket: string;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;

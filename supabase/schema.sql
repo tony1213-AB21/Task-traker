@@ -58,6 +58,8 @@ create table if not exists public.projects (
   status text not null default 'active',
   color text,
   description text,
+  -- Analytics 안전 버킷 (KAN-32): 이벤트에는 프로젝트명 대신 이 값만 전송 (ab21/company/sorimemory/soriedu/kuji/etc)
+  analytics_bucket text not null default 'etc',
   -- 소프트 삭제 (KAN-23): 행을 지우지 않고 타임스탬프만 기록. Entry/Task의 project_id는 유지.
   deleted_at timestamptz,
   created_at timestamptz not null default now(),

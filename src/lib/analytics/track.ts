@@ -137,6 +137,22 @@ function envName(): "production" | "preview" | "development" {
   return process.env.NODE_ENV === "production" ? "production" : "development";
 }
 
+// Subtype 이름 → work_type 안전 버킷 (Analytics Spec 4.1.2).
+// 자유 입력 원문은 보내지 않고 키워드 매칭된 버킷만 보낸다.
+// Subtype이 없으면 undefined(속성 생략), 있는데 매칭이 안 되면 etc.
+export function workTypeFromSubtype(
+  name: string | null | undefined
+): WorkType | undefined {
+  if (!name) return undefined;
+  const n = name.toLowerCase();
+  if (/개발|구현|코딩|배포|버그|dev|code|deploy|build/.test(n)) return "dev";
+  if (/기획|문서|계획|정의|spec|plan|doc/.test(n)) return "planning";
+  if (/미팅|회의|커뮤니|논의|meeting|call/.test(n)) return "meeting";
+  if (/조사|리서치|학습|공부|research|study/.test(n)) return "research";
+  if (/회고|kpt|retro/.test(n)) return "retro";
+  return "etc";
+}
+
 export function durationBucket(minutes: number): DurationBucket {
   if (minutes < 30) return "under_30m";
   if (minutes < 60) return "30m_1h";

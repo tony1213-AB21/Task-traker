@@ -21,7 +21,12 @@ import type {
 } from "@/lib/types/database";
 import { PROJECT_COLORS } from "@/lib/types/meta";
 import { combineDateTime } from "@/lib/time/format";
-import { durationBucket, track } from "@/lib/analytics/track";
+import {
+  durationBucket,
+  track,
+  workTypeFromSubtype,
+  type ProjectType,
+} from "@/lib/analytics/track";
 
 const ENTRY_SELECT =
   "*, entry_links(*), kpt_notes(*), entry_tasks(task_id, tasks(*))";
@@ -226,7 +231,21 @@ export function useDailyReport(date: string) {
         const created = data as unknown as EntryWithRelations;
         setEntries((prev) => sortEntries([...prev, created]));
         // 신규 생성 저장 성공 시에만 발화. 자동저장(updateEntry)은 과다 발화 방지를 위해 제외 (KAN-3 검수 가정 A)
+        // project_type/work_type은 생성 시점 값이 있을 때만 안전 버킷으로 전송 (KAN-32).
+        // 현재 UI는 기본값 즉시 생성이라 대부분 생략됨 — Review Plan 4번의 알려진 한계
+        const project = created.project_id
+          ? projects.find((p) => p.id === created.project_id)
+          : null;
+        const workType = workTypeFromSubtype(
+          created.subtype_id
+            ? subtypes.find((s) => s.id === created.subtype_id)?.name
+            : null
+        );
         track("entry_saved", {
+          ...(project && {
+            project_type: project.analytics_bucket as ProjectType,
+          }),
+          ...(workType && { work_type: workType }),
           duration_bucket: durationBucket(
             Math.round((end.getTime() - start.getTime()) / 60000)
           ),
@@ -243,7 +262,7 @@ export function useDailyReport(date: string) {
         endOp();
       }
     },
-    [supabase, userId, date, entries, beginOp, endOp, recover]
+    [supabase, userId, date, entries, projects, subtypes, beginOp, endOp, recover]
   );
 
   const updateEntry = useCallback(
@@ -544,8 +563,16 @@ export function useDailyReport(date: string) {
           .select("*")
           .single();
         if (error) throw error;
-        // project_type은 프로젝트→유형 매핑 규칙 확정 전이라 v1에서는 보내지 않는다 (KAN-3 검수)
-        track("todo_created");
+        // 연결 프로젝트가 있으면 안전 버킷(project_type)만 전송 (KAN-32)
+        const taskProject = input.project_id
+          ? projects.find((p) => p.id === input.project_id)
+          : null;
+        track(
+          "todo_created",
+          taskProject
+            ? { project_type: taskProject.analytics_bucket as ProjectType }
+            : {}
+        );
         setTasks((cur) => [...cur, data as Task]);
         return data as Task;
       } catch (e) {
@@ -556,7 +583,7 @@ export function useDailyReport(date: string) {
         endOp();
       }
     },
-    [supabase, userId, beginOp, endOp, recover]
+    [supabase, userId, projects, beginOp, endOp, recover]
   );
 
   const updateTask = useCallback(
@@ -643,7 +670,11 @@ export function useDailyReport(date: string) {
   // ---------- Projects / Subtypes ----------
 
   const createProject = useCallback(
-    async (name: string, orgName?: string): Promise<Project | null> => {
+    async (
+      name: string,
+      orgName?: string,
+      analyticsBucket?: string
+    ): Promise<Project | null> => {
       if (!userId) return null;
       beginOp();
       try {
@@ -655,6 +686,7 @@ export function useDailyReport(date: string) {
             name,
             org_name: orgName || null,
             color,
+            analytics_bucket: analyticsBucket || "etc",
           })
           .select("*")
           .single();
