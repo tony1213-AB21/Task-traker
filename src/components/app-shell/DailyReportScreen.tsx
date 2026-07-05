@@ -3,9 +3,10 @@
 // Daily Report 메인 화면: 상단 바 + 중앙 표 + 오른쪽 컨텍스트 패널.
 // 날짜/선택 Entry/패널 탭/검색 상태를 소유한다.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, format, parse } from "date-fns";
 import { useDailyReport } from "@/lib/data/useDailyReport";
+import { track } from "@/lib/analytics/track";
 import { findOverlaps, todayStr } from "@/lib/time/format";
 import TopBar from "./TopBar";
 import EntryTable from "@/components/daily-report-table/EntryTable";
@@ -20,6 +21,30 @@ export default function DailyReportScreen() {
   const [search, setSearch] = useState("");
 
   const report = useDailyReport(date);
+
+  // login_completed: OAuth 콜백이 붙인 ?login=1을 감지해 1회 발화 후 제거 (KAN-13)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("login") === "1") {
+      track("login_completed");
+      params.delete("login");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        window.location.pathname + (qs ? `?${qs}` : "")
+      );
+    }
+  }, []);
+
+  // daily_report_viewed: 메인 표 렌더 완료(첫 로딩 종료) 시 1회 발화 (KAN-13)
+  const viewedFired = useRef(false);
+  useEffect(() => {
+    if (!report.loading && !viewedFired.current) {
+      viewedFired.current = true;
+      track("daily_report_viewed");
+    }
+  }, [report.loading]);
 
   const projectById = useMemo(
     () => new Map(report.projects.map((p) => [p.id, p])),

@@ -4,10 +4,12 @@
 // Untracked = 첫 기록과 마지막 기록 사이의 빈 시간 (gap rule)
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { ArrowUpRight } from "lucide-react";
 import type { DailyReport } from "@/lib/data/useDailyReport";
 import type { TypeKey } from "@/lib/types/database";
 import { TYPE_META } from "@/lib/types/meta";
+import { track } from "@/lib/analytics/track";
 import {
   fmtHuman,
   minutesBetween,
@@ -22,6 +24,15 @@ export default function AnalysisPanel({
   date: string;
 }) {
   const { entries, tasks } = report;
+
+  // analysis_viewed: 패널 렌더 완료(로딩 종료) 시 탭 진입당 1회 발화 (KAN-13)
+  const viewedFired = useRef(false);
+  useEffect(() => {
+    if (!report.loading && !viewedFired.current) {
+      viewedFired.current = true;
+      track("analysis_viewed", { entry_count: report.entries.length });
+    }
+  }, [report.loading, report.entries.length]);
 
   const tracked = trackedMinutes(entries);
   const untracked = untrackedMinutes(entries);

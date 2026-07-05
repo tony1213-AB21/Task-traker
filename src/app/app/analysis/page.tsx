@@ -3,7 +3,7 @@
 // 전체 분석 페이지 (v1: 오늘 데이터 기준의 단순 페이지)
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, format, parse } from "date-fns";
 import {
@@ -16,6 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import { useDailyReport } from "@/lib/data/useDailyReport";
+import { track } from "@/lib/analytics/track";
 import type { TypeKey } from "@/lib/types/database";
 import { TYPE_META } from "@/lib/types/meta";
 import {
@@ -30,6 +31,15 @@ import {
 export default function AnalysisPage() {
   const [date, setDate] = useState(todayStr());
   const report = useDailyReport(date);
+
+  // analysis_viewed: 전체 분석 페이지 렌더 완료 시 방문당 1회 발화 (KAN-13)
+  const viewedFired = useRef(false);
+  useEffect(() => {
+    if (!report.loading && !viewedFired.current) {
+      viewedFired.current = true;
+      track("analysis_viewed", { entry_count: report.entries.length });
+    }
+  }, [report.loading, report.entries.length]);
 
   function moveDate(delta: number) {
     const d = parse(date, "yyyy-MM-dd", new Date());
