@@ -29,11 +29,18 @@ GitHub 저장소(`tony1213-AB21/Task-traker`)를 Vercel에 import하면 Next.js 
 
 ## 2. 환경변수 (Vercel → Settings → Environment Variables)
 
-**아래 2개만** 넣습니다. 둘 다 `NEXT_PUBLIC_` 접두사이며 클라이언트에 노출되어도 되는 값입니다(publishable/anon 키).
+**필수 2개** — 둘 다 `NEXT_PUBLIC_` 접두사이며 클라이언트에 노출되어도 되는 값입니다(publishable/anon 키).
 
 ```text
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+```
+
+**선택 2개 (Analytics, KAN-13)** — 설정하면 이벤트 전송이 활성화됩니다. 미설정 시 no-op이라 없어도 앱은 정상 동작합니다.
+
+```text
+NEXT_PUBLIC_GA_MEASUREMENT_ID      # GA4 (G-XXXXXXXXXX)
+NEXT_PUBLIC_AMPLITUDE_API_KEY      # Amplitude 프로젝트 API Key
 ```
 
 - Environments: Production (필요 시 Preview / Development에도 동일 값)
