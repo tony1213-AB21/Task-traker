@@ -101,6 +101,24 @@ const ALLOWED_VALUES: Record<string, readonly string[]> = {
 
 type Primitive = string | number | boolean;
 
+// Amplitude: API 키가 있을 때만 SDK를 lazy 로드해 앱 생명주기 동안 1회만 init한다.
+// autocapture는 끈다 — 스펙 v1의 9개 이벤트만 보낸다. Session Replay 플러그인은 v1에서 쓰지 않는다.
+const AMPLITUDE_KEY = process.env.NEXT_PUBLIC_AMPLITUDE_API_KEY;
+let amplitudePromise: Promise<
+  typeof import("@amplitude/analytics-browser")
+> | null = null;
+
+function getAmplitude() {
+  if (!AMPLITUDE_KEY) return null;
+  if (!amplitudePromise) {
+    amplitudePromise = import("@amplitude/analytics-browser").then((m) => {
+      m.init(AMPLITUDE_KEY, { autocapture: false });
+      return m;
+    });
+  }
+  return amplitudePromise;
+}
+
 function dateBucket(d: Date = new Date()): "weekday" | "weekend" {
   const day = d.getDay();
   return day === 0 || day === 6 ? "weekend" : "weekday";
@@ -175,11 +193,25 @@ export function track<E extends AnalyticsEvent>(
     );
   }
 
+  // GA4 + Amplitude 동시 전송. 각각 키가 설정된 경우에만 동작한다.
+  let delivered = false;
+
   const w = window as Window & { gtag?: (...args: unknown[]) => void };
   if (w.gtag) {
     w.gtag("event", event, payload);
-  } else if (payload.env !== "production") {
-    // GA4 미연결 상태(measurement ID 미발급)에서는 개발 환경 로그만 남긴다
+    delivered = true;
+  }
+
+  const amplitude = getAmplitude();
+  if (amplitude) {
+    amplitude
+      .then((m) => m.track(event, payload))
+      .catch((e) => console.warn("[analytics] Amplitude 전송 실패:", e));
+    delivered = true;
+  }
+
+  if (!delivered && payload.env !== "production") {
+    // 둘 다 미연결 상태에서는 개발 환경 로그만 남긴다
     console.debug("[analytics]", event, payload);
   }
 }
