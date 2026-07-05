@@ -1,10 +1,10 @@
 "use client";
 
-// To-do 패널: Today / Backlog 목록, 생성, 체크, 선택 Entry에 연결.
+// To-do 패널: Today / Backlog 목록, 생성, 수정, 삭제, 체크, 선택 Entry에 연결.
 // 연결은 드래그 앤 드롭이 아니라 명시적 "선택 기록에 연결" 버튼을 사용한다.
 
 import { useState } from "react";
-import { CalendarDays, Clock3, Link2, Plus } from "lucide-react";
+import { CalendarDays, Clock3, Link2, Pencil, Plus, Trash2 } from "lucide-react";
 import type { DailyReport } from "@/lib/data/useDailyReport";
 import type {
   EntryWithRelations,
@@ -96,7 +96,7 @@ function TodoSection({
       </div>
 
       {adding && (
-        <NewTaskForm
+        <TaskForm
           report={report}
           defaultList={defaultList}
           onDone={() => setAdding(false)}
@@ -131,6 +131,7 @@ function TodoCard({
   report: DailyReport;
   selectedEntry: EntryWithRelations | null;
 }) {
+  const [editing, setEditing] = useState(false);
   const done = task.status === "done";
   const project = task.project_id
     ? report.projects.find((p) => p.id === task.project_id)
@@ -139,8 +140,19 @@ function TodoCard({
     (et) => et.task_id === task.id
   );
 
+  if (editing) {
+    return (
+      <TaskForm
+        report={report}
+        defaultList={task.list}
+        task={task}
+        onDone={() => setEditing(false)}
+      />
+    );
+  }
+
   return (
-    <div className="rounded-lg border border-line bg-surface px-2.5 py-2 transition hover:bg-surface-alt">
+    <div className="group rounded-lg border border-line bg-surface px-2.5 py-2 transition hover:bg-surface-alt">
       <div className="flex items-start gap-2">
         <button
           onClick={() => report.toggleTaskDone(task.id)}
@@ -181,53 +193,88 @@ function TodoCard({
             )}
           </div>
         </div>
-        {selectedEntry && (
+        <div className="flex flex-none items-center gap-0.5">
           <button
-            onClick={() =>
-              alreadyLinked
-                ? report.detachTask(selectedEntry.id, task.id)
-                : report.attachTask(selectedEntry.id, task.id)
-            }
-            title={alreadyLinked ? "연결 해제" : "선택 기록에 연결"}
-            className={`flex-none rounded-md p-1 transition ${
-              alreadyLinked
-                ? "bg-[#eeeef7] text-primary"
-                : "text-ink-faint hover:bg-line-soft hover:text-ink-mid"
-            }`}
+            onClick={() => setEditing(true)}
+            title="To-do 수정"
+            className="rounded-md p-1 text-ink-faint opacity-0 transition group-hover:opacity-100 hover:bg-line-soft hover:text-ink-mid"
           >
-            <Link2 size={13} />
+            <Pencil size={12} />
           </button>
-        )}
+          <button
+            onClick={() => {
+              if (
+                window.confirm(
+                  "이 To-do를 삭제할까요?\n연결된 기록은 남고, To-do 표시만 사라집니다."
+                )
+              ) {
+                report.deleteTask(task.id);
+              }
+            }}
+            title="To-do 삭제"
+            className="rounded-md p-1 text-ink-faint opacity-0 transition group-hover:opacity-100 hover:bg-[#f8ecea] hover:text-[#9a3b32]"
+          >
+            <Trash2 size={12} />
+          </button>
+          {selectedEntry && (
+            <button
+              onClick={() =>
+                alreadyLinked
+                  ? report.detachTask(selectedEntry.id, task.id)
+                  : report.attachTask(selectedEntry.id, task.id)
+              }
+              title={alreadyLinked ? "연결 해제" : "선택 기록에 연결"}
+              className={`rounded-md p-1 transition ${
+                alreadyLinked
+                  ? "bg-[#eeeef7] text-primary"
+                  : "text-ink-faint hover:bg-line-soft hover:text-ink-mid"
+              }`}
+            >
+              <Link2 size={13} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function NewTaskForm({
+// task를 주면 수정 폼, 없으면 생성 폼으로 동작한다.
+function TaskForm({
   report,
   defaultList,
+  task,
   onDone,
 }: {
   report: DailyReport;
   defaultList: TaskList;
+  task?: Task;
   onDone: () => void;
 }) {
-  const [title, setTitle] = useState("");
-  const [priority, setPriority] = useState<TaskPriority>("medium");
-  const [projectId, setProjectId] = useState("");
-  const [due, setDue] = useState("");
-  const [est, setEst] = useState("");
+  const [title, setTitle] = useState(task?.title ?? "");
+  const [priority, setPriority] = useState<TaskPriority>(
+    task?.priority ?? "medium"
+  );
+  const [projectId, setProjectId] = useState(task?.project_id ?? "");
+  const [due, setDue] = useState(task?.due_date ?? "");
+  const [est, setEst] = useState(
+    task?.estimated_minutes != null ? String(task.estimated_minutes) : ""
+  );
 
   async function submit() {
     if (!title.trim()) return;
-    await report.createTask({
+    const fields = {
       title: title.trim(),
-      list: defaultList,
       priority,
       project_id: projectId || null,
       due_date: due || null,
       estimated_minutes: est ? parseInt(est, 10) || null : null,
-    });
+    };
+    if (task) {
+      await report.updateTask(task.id, fields);
+    } else {
+      await report.createTask({ ...fields, list: defaultList });
+    }
     onDone();
   }
 
@@ -291,7 +338,7 @@ function NewTaskForm({
           disabled={!title.trim()}
           className="rounded-md bg-primary px-2.5 py-1 text-[11.5px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
         >
-          추가
+          {task ? "저장" : "추가"}
         </button>
         <button
           onClick={onDone}

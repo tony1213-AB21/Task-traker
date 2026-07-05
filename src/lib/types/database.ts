@@ -40,6 +40,7 @@ export interface Project {
   status: string;
   color: string | null;
   description: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -67,6 +68,7 @@ export interface Task {
   due_date: string | null;
   estimated_minutes: number | null;
   completed_at: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +108,7 @@ export interface KptNote {
   problem_text: string | null;
   try_text: string | null;
   plus_text: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }
