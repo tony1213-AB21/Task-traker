@@ -108,7 +108,11 @@ export function useDailyReport(date: string) {
             .eq("report_date", date)
             .order("start_at", { ascending: true }),
           supabase.from("tasks").select("*").order("created_at"),
-          supabase.from("projects").select("*").order("created_at"),
+          supabase
+            .from("projects")
+            .select("*")
+            .is("deleted_at", null)
+            .order("created_at"),
           supabase.from("subtypes").select("*").eq("archived", false).order("name"),
           supabase.from("user_preferences").select("*").maybeSingle(),
           supabase.auth.getUser(),
@@ -569,6 +573,57 @@ export function useDailyReport(date: string) {
     [supabase, userId, projects.length, beginOp, endOp, recover]
   );
 
+  const updateProject = useCallback(
+    async (id: string, patch: Partial<Project>) => {
+      beginOp();
+      const prev = projects;
+      setProjects((cur) =>
+        cur.map((p) => (p.id === id ? { ...p, ...patch } : p))
+      );
+      try {
+        const { error } = await supabase
+          .from("projects")
+          .update({ ...patch, updated_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      } catch (e) {
+        console.error(e);
+        setProjects(prev);
+        await recover();
+      } finally {
+        endOp();
+      }
+    },
+    [supabase, projects, beginOp, endOp, recover]
+  );
+
+  // Project 소프트 삭제 (KAN-23 연결 데이터 규칙):
+  // - projects.deleted_at만 기록하고 행은 남긴다.
+  // - Entry/Task의 project_id는 그대로 유지한다 (기록 보존).
+  //   삭제된 프로젝트는 조회에서 빠지므로 화면에서는 프로젝트 칩이 비어 보이고,
+  //   deleted_at을 null로 되돌리면 기존 연결이 그대로 복구된다.
+  const deleteProject = useCallback(
+    async (id: string) => {
+      beginOp();
+      const prev = projects;
+      setProjects((cur) => cur.filter((p) => p.id !== id));
+      try {
+        const { error } = await supabase
+          .from("projects")
+          .update({ deleted_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      } catch (e) {
+        console.error(e);
+        setProjects(prev);
+        await recover();
+      } finally {
+        endOp();
+      }
+    },
+    [supabase, projects, beginOp, endOp, recover]
+  );
+
   const createSubtype = useCallback(
     async (typeKey: TypeKey, name: string): Promise<Subtype | null> => {
       if (!userId) return null;
@@ -643,6 +698,8 @@ export function useDailyReport(date: string) {
     updateTask,
     toggleTaskDone,
     createProject,
+    updateProject,
+    deleteProject,
     createSubtype,
     saveColumnWidths,
   };

@@ -40,6 +40,7 @@ export interface Project {
   status: string;
   color: string | null;
   description: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 }

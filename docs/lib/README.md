@@ -17,6 +17,14 @@
 - Untracked = 첫 기록 시작과 마지막 기록 종료 사이의 빈 시간 (24시간 기준 아님).
 - 자정 넘김 Entry는 시작 날짜(report_date)에 속합니다.
 
+## 삭제 규칙 (KAN-23)
+
+- Project 삭제는 소프트 삭제입니다. `projects.deleted_at`만 기록하고 행은 남깁니다.
+  - Entry/Task의 `project_id`는 유지합니다 (기록 보존). 조회에서 삭제된 프로젝트가 빠지므로 화면에서는 칩이 비어 보입니다.
+  - `deleted_at`을 null로 되돌리면 기존 연결이 그대로 복구됩니다.
+- Entry와 Link 삭제는 기존 동작대로 하드 삭제입니다 (KAN-23 범위 밖, 알려진 제한).
+
 ## 변경 로그
 
 - 2026-07-04: Daily Report MVP 데이터 계층 생성
+- 2026-07-05: Project 수정/소프트 삭제 추가 (KAN-23)

@@ -1,6 +1,6 @@
 -- Daily Report MVP schema
 -- Supabase SQL Editor 또는 `supabase db push`(migrations 사용 시)로 실행하세요.
--- 이 파일은 supabase/migrations/0001_initial_schema.sql 과 동일한 내용의 단일 파일입니다.
+-- 이 파일은 supabase/migrations/ 전체를 반영한 단일 파일입니다.
 
 -- ============================================================
 -- 1. profiles
@@ -58,6 +58,8 @@ create table if not exists public.projects (
   status text not null default 'active',
   color text,
   description text,
+  -- 소프트 삭제 (KAN-23): 행을 지우지 않고 타임스탬프만 기록. Entry/Task의 project_id는 유지.
+  deleted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
