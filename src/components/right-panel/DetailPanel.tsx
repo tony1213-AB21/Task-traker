@@ -447,9 +447,22 @@ function DetailBody({
               return (
                 <button
                   key={key}
-                  onClick={() =>
-                    report.updateEntry(entry.id, { status: key as EntryStatus })
-                  }
+                  onClick={() => {
+                    // 같은 content의 미완료 기록이 더 있으면 함께 Done 처리 제안 (KAN-27)
+                    if (key === "done") {
+                      const group = report.sameContentInProgress(entry);
+                      if (
+                        group.length > 0 &&
+                        window.confirm(
+                          `같은 내용의 진행 중 기록 ${group.length}개를 함께 Done 처리할까요?\n(취소하면 이 기록만 변경됩니다)`
+                        )
+                      ) {
+                        report.completeEntryGroup(entry);
+                        return;
+                      }
+                    }
+                    report.updateEntry(entry.id, { status: key as EntryStatus });
+                  }}
                   className="flex items-center gap-1 rounded-md px-2 py-[3px] text-[11.5px] font-medium transition"
                   style={{
                     background: meta.bg,
@@ -639,11 +652,23 @@ function TaskPicker({
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
+  const [creating, setCreating] = useState(false);
   const candidates = report.tasks.filter(
     (t) =>
       !excludeIds.includes(t.id) &&
       (!q.trim() || t.title.toLowerCase().includes(q.trim().toLowerCase()))
   );
+
+  // 새 To-do를 만들며 바로 연결 (KAN-33). todo_created는 createTask,
+  // todo_attached_to_entry는 onPick(attachTask) 경로에서 각각 1회 발화된다.
+  async function createAndPick() {
+    const title = q.trim();
+    if (!title || creating) return;
+    setCreating(true);
+    const task = await report.createTask({ title, list: "today" });
+    setCreating(false);
+    if (task) onPick(task.id);
+  }
   return (
     <div className="rounded-lg border border-line bg-surface-alt p-2">
       <div className="mb-1.5 flex items-center gap-1.5">
@@ -651,8 +676,11 @@ function TaskPicker({
           autoFocus
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Escape" && onClose()}
-          placeholder="To-do 검색"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onClose();
+            if (e.key === "Enter" && candidates.length === 0) createAndPick();
+          }}
+          placeholder="To-do 검색 또는 새로 만들기"
           className="min-w-0 flex-1 rounded-md border border-line px-2 py-1 text-[12px] outline-none focus:border-primary"
         />
         <button onClick={onClose} className="flex-none text-ink-faint">
@@ -660,23 +688,34 @@ function TaskPicker({
         </button>
       </div>
       <div className="max-h-[160px] overflow-y-auto">
-        {candidates.length === 0 ? (
+        {candidates.length === 0 && !q.trim() && (
           <p className="px-1 py-2 text-[11.5px] text-ink-faint">
-            연결할 To-do가 없습니다. To-do 탭에서 먼저 만들어주세요.
+            연결할 To-do가 없습니다. 제목을 입력하면 새로 만들어 연결합니다.
           </p>
-        ) : (
-          candidates.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => onPick(t.id)}
-              className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-[12.5px] text-ink transition hover:bg-line-soft"
-            >
-              <span className="min-w-0 flex-1 truncate">{t.title}</span>
-              <span className="flex-none text-[10.5px] text-ink-faint">
-                {t.list === "today" ? "Today" : "Backlog"}
-              </span>
-            </button>
-          ))
+        )}
+        {candidates.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => onPick(t.id)}
+            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-[12.5px] text-ink transition hover:bg-line-soft"
+          >
+            <span className="min-w-0 flex-1 truncate">{t.title}</span>
+            <span className="flex-none text-[10.5px] text-ink-faint">
+              {t.list === "today" ? "Today" : "Backlog"}
+            </span>
+          </button>
+        ))}
+        {q.trim() && (
+          <button
+            onClick={createAndPick}
+            disabled={creating}
+            className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1.5 text-left text-[12.5px] text-primary transition hover:bg-line-soft disabled:opacity-50"
+          >
+            <Plus size={12} className="flex-none" />
+            <span className="min-w-0 flex-1 truncate">
+              {creating ? "만드는 중..." : `"${q.trim()}" 새로 만들어 연결`}
+            </span>
+          </button>
         )}
       </div>
     </div>

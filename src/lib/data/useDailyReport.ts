@@ -310,6 +310,49 @@ export function useDailyReport(date: string) {
     [supabase, entries, beginOp, endOp, recover]
   );
 
+  // ---------- 동일 content 연속 Entry 일괄 처리 (KAN-27) ----------
+  // 그룹 정의: 같은 report_date에서 content(공백 제거)가 같고 아직 done이 아닌 Entry.
+  // 자정 교차 Entry는 시작일에 귀속되므로(KAN-24) 밤에 걸친 연속 작업도 같은 날짜 그룹으로 묶인다.
+
+  const sameContentInProgress = useCallback(
+    (entry: EntryWithRelations): EntryWithRelations[] => {
+      const key = (entry.content ?? "").trim();
+      if (!key) return [];
+      return entries.filter(
+        (e) =>
+          e.id !== entry.id &&
+          e.status !== "done" &&
+          (e.content ?? "").trim() === key
+      );
+    },
+    [entries]
+  );
+
+  const completeEntryGroup = useCallback(
+    async (entry: EntryWithRelations) => {
+      const ids = [entry.id, ...sameContentInProgress(entry).map((e) => e.id)];
+      beginOp();
+      const prev = entries;
+      setEntries((cur) =>
+        cur.map((e) => (ids.includes(e.id) ? { ...e, status: "done" } : e))
+      );
+      try {
+        const { error } = await supabase
+          .from("entries")
+          .update({ status: "done", updated_at: new Date().toISOString() })
+          .in("id", ids);
+        if (error) throw error;
+      } catch (e) {
+        console.error(e);
+        setEntries(prev);
+        await recover();
+      } finally {
+        endOp();
+      }
+    },
+    [supabase, entries, sameContentInProgress, beginOp, endOp, recover]
+  );
+
   // ---------- Entry <-> Task 연결 ----------
 
   const attachTask = useCallback(
@@ -667,6 +710,22 @@ export function useDailyReport(date: string) {
     [tasks, updateTask]
   );
 
+  // To-do 상태 3단계 순환: not_started → in_progress → done → not_started (KAN-33)
+  const cycleTaskStatus = useCallback(
+    async (id: string) => {
+      const task = tasks.find((t) => t.id === id);
+      if (!task) return;
+      const order = ["not_started", "in_progress", "done"] as const;
+      const idx = order.indexOf(task.status as (typeof order)[number]);
+      const next = order[(idx + 1) % order.length];
+      await updateTask(id, {
+        status: next,
+        completed_at: next === "done" ? new Date().toISOString() : null,
+      });
+    },
+    [tasks, updateTask]
+  );
+
   // ---------- Projects / Subtypes ----------
 
   const createProject = useCallback(
@@ -819,6 +878,8 @@ export function useDailyReport(date: string) {
     createEntry,
     updateEntry,
     deleteEntry,
+    sameContentInProgress,
+    completeEntryGroup,
     attachTask,
     detachTask,
     addLink,
@@ -830,6 +891,7 @@ export function useDailyReport(date: string) {
     updateTask,
     deleteTask,
     toggleTaskDone,
+    cycleTaskStatus,
     createProject,
     updateProject,
     deleteProject,

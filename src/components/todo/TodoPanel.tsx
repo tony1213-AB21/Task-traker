@@ -175,9 +175,14 @@ function TodoCard({
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <PrioPill priority={task.priority as TaskPriority} />
-            {task.status !== "not_started" && (
+            {/* 상태 pill 클릭으로 not_started → in_progress → done 순환 (KAN-33) */}
+            <button
+              onClick={() => report.cycleTaskStatus(task.id)}
+              title="클릭하여 상태 변경 (Not started → In progress → Done)"
+              className="rounded transition hover:opacity-70"
+            >
               <StatusPill status={task.status} />
-            )}
+            </button>
             {project && <ProjectChip project={project} />}
             {task.due_date && (
               <span className="flex items-center gap-0.5 text-[11px] text-ink-faint">
