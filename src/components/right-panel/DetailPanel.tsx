@@ -11,7 +11,13 @@ import type {
   EntryWithRelations,
   TypeKey,
 } from "@/lib/types/database";
-import { STATUS_KEYS, STATUS_META, TYPE_KEYS, TYPE_META } from "@/lib/types/meta";
+import {
+  ANALYTICS_BUCKET_OPTIONS,
+  STATUS_KEYS,
+  STATUS_META,
+  TYPE_KEYS,
+  TYPE_META,
+} from "@/lib/types/meta";
 import {
   combineDateTime,
   fmtHM,
@@ -296,8 +302,8 @@ function DetailBody({
             {showProjectForm ? (
               <NewProjectForm
                 onCancel={() => setShowProjectForm(false)}
-                onCreate={async (name, org) => {
-                  const created = await report.createProject(name, org);
+                onCreate={async (name, org, bucket) => {
+                  const created = await report.createProject(name, org, bucket);
                   if (created) {
                     report.updateEntry(entry.id, { project_id: created.id });
                   }
@@ -512,11 +518,12 @@ function NewProjectForm({
   onCreate,
   onCancel,
 }: {
-  onCreate: (name: string, org: string) => void;
+  onCreate: (name: string, org: string, bucket: string) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState("");
   const [org, setOrg] = useState("");
+  const [bucket, setBucket] = useState("etc");
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-line bg-surface-alt p-2">
       <input
@@ -532,9 +539,24 @@ function NewProjectForm({
         placeholder="Org / 회사 (선택)"
         className="rounded-md border border-line px-2 py-1 text-[12px] outline-none focus:border-primary"
       />
+      {/* Analytics 분류: 이벤트에는 프로젝트명 대신 이 버킷만 전송 (KAN-32) */}
+      <select
+        value={bucket}
+        onChange={(e) => setBucket(e.target.value)}
+        title="Analytics 분류 (이벤트에는 프로젝트명 대신 이 값만 전송)"
+        className="rounded-md border border-line bg-surface px-2 py-1 text-[12px] outline-none focus:border-primary"
+      >
+        {ANALYTICS_BUCKET_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            Analytics: {o.label}
+          </option>
+        ))}
+      </select>
       <div className="flex gap-1.5">
         <button
-          onClick={() => name.trim() && onCreate(name.trim(), org.trim())}
+          onClick={() =>
+            name.trim() && onCreate(name.trim(), org.trim(), bucket)
+          }
           disabled={!name.trim()}
           className="rounded-md bg-primary px-2.5 py-1 text-[11.5px] font-semibold text-white transition hover:bg-primary-hover disabled:opacity-50"
         >

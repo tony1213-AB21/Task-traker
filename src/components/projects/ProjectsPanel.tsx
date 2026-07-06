@@ -7,7 +7,32 @@ import { useState } from "react";
 import { ArrowUpRight, Pencil, Plus, Trash2 } from "lucide-react";
 import type { DailyReport } from "@/lib/data/useDailyReport";
 import type { Project } from "@/lib/types/database";
+import { ANALYTICS_BUCKET_OPTIONS } from "@/lib/types/meta";
 import { fmtHuman, minutesBetween, toLocalHM } from "@/lib/time/format";
+
+// Analytics 분류 선택 (이벤트에는 프로젝트명 대신 이 버킷만 전송, KAN-32)
+function BucketSelect({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      title="Analytics 분류 (이벤트에는 프로젝트명 대신 이 값만 전송)"
+      className="rounded-md border border-line bg-surface px-2 py-1 text-[12px] outline-none focus:border-primary"
+    >
+      {ANALYTICS_BUCKET_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>
+          Analytics: {o.label}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 export default function ProjectsPanel({
   report,
@@ -20,6 +45,7 @@ export default function ProjectsPanel({
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [org, setOrg] = useState("");
+  const [bucket, setBucket] = useState("etc");
 
   return (
     <div className="flex flex-col gap-2.5 px-4 py-4">
@@ -53,13 +79,15 @@ export default function ProjectsPanel({
             placeholder="Org / 회사 (선택)"
             className="rounded-md border border-line px-2 py-1 text-[12px] outline-none focus:border-primary"
           />
+          <BucketSelect value={bucket} onChange={setBucket} />
           <div className="flex gap-1.5">
             <button
               onClick={async () => {
                 if (!name.trim()) return;
-                await report.createProject(name.trim(), org.trim());
+                await report.createProject(name.trim(), org.trim(), bucket);
                 setName("");
                 setOrg("");
+                setBucket("etc");
                 setAdding(false);
               }}
               disabled={!name.trim()}
@@ -116,6 +144,7 @@ function ProjectCard({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(project.name);
   const [org, setOrg] = useState(project.org_name ?? "");
+  const [bucket, setBucket] = useState(project.analytics_bucket ?? "etc");
 
   const entries = report.entries.filter((e) => e.project_id === project.id);
   const todayMinutes = entries.reduce(
@@ -144,6 +173,7 @@ function ProjectCard({
           placeholder="Org / 회사 (선택)"
           className="rounded-md border border-line px-2 py-1 text-[12px] outline-none focus:border-primary"
         />
+        <BucketSelect value={bucket} onChange={setBucket} />
         <div className="flex gap-1.5">
           <button
             onClick={async () => {
@@ -151,6 +181,7 @@ function ProjectCard({
               await report.updateProject(project.id, {
                 name: name.trim(),
                 org_name: org.trim() || null,
+                analytics_bucket: bucket,
               });
               setEditing(false);
             }}
@@ -163,6 +194,7 @@ function ProjectCard({
             onClick={() => {
               setName(project.name);
               setOrg(project.org_name ?? "");
+              setBucket(project.analytics_bucket ?? "etc");
               setEditing(false);
             }}
             className="rounded-md px-2 py-1 text-[11.5px] text-ink-muted transition hover:bg-line-soft"

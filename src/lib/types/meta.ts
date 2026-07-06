@@ -85,6 +85,16 @@ export const PRIORITY_META: Record<
   low: { label: "Low", bg: "#edece9", fg: "#6a655e" },
 };
 
+// Analytics 안전 버킷 선택지 (Analytics Spec 4.1.1 — 실제 프로젝트명 대신 이 값만 이벤트에 전송)
+export const ANALYTICS_BUCKET_OPTIONS = [
+  { value: "ab21", label: "AB21" },
+  { value: "company", label: "회사 업무" },
+  { value: "sorimemory", label: "소리기억" },
+  { value: "soriedu", label: "소리교육" },
+  { value: "kuji", label: "쿠지" },
+  { value: "etc", label: "기타" },
+] as const;
+
 // 프로젝트 색상 기본 팔레트 (새 프로젝트 생성 시 순환)
 export const PROJECT_COLORS = [
   "#5e6ad2",
