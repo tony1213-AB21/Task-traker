@@ -360,3 +360,17 @@ with check (auth.uid() = user_id);
 create policy "Users can delete own preferences"
 on public.user_preferences for delete
 using (auth.uid() = user_id);
+
+-- ============================================================
+-- 10. Admin 조회 정책 (KAN-26) — 기존 소유자 SELECT 정책과 OR 결합
+--     쓰기 정책은 확장하지 않는다 (Admin은 구조적 조회 전용).
+--     user_preferences는 제외 (본인 설정만 사용).
+-- ============================================================
+create policy admin_select_profiles on public.profiles for select using (public.is_admin());
+create policy admin_select_projects on public.projects for select using (public.is_admin());
+create policy admin_select_subtypes on public.subtypes for select using (public.is_admin());
+create policy admin_select_tasks on public.tasks for select using (public.is_admin());
+create policy admin_select_entries on public.entries for select using (public.is_admin());
+create policy admin_select_entry_tasks on public.entry_tasks for select using (public.is_admin());
+create policy admin_select_entry_links on public.entry_links for select using (public.is_admin());
+create policy admin_select_kpt_notes on public.kpt_notes for select using (public.is_admin());
