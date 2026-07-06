@@ -447,9 +447,22 @@ function DetailBody({
               return (
                 <button
                   key={key}
-                  onClick={() =>
-                    report.updateEntry(entry.id, { status: key as EntryStatus })
-                  }
+                  onClick={() => {
+                    // 같은 content의 미완료 기록이 더 있으면 함께 Done 처리 제안 (KAN-27)
+                    if (key === "done") {
+                      const group = report.sameContentInProgress(entry);
+                      if (
+                        group.length > 0 &&
+                        window.confirm(
+                          `같은 내용의 진행 중 기록 ${group.length}개를 함께 Done 처리할까요?\n(취소하면 이 기록만 변경됩니다)`
+                        )
+                      ) {
+                        report.completeEntryGroup(entry);
+                        return;
+                      }
+                    }
+                    report.updateEntry(entry.id, { status: key as EntryStatus });
+                  }}
                   className="flex items-center gap-1 rounded-md px-2 py-[3px] text-[11.5px] font-medium transition"
                   style={{
                     background: meta.bg,
