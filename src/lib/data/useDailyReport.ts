@@ -12,6 +12,7 @@ import type {
   EntryLink,
   EntryWithRelations,
   KptNote,
+  Profile,
   Project,
   Subtype,
   Task,
@@ -68,10 +69,14 @@ export interface CreateTaskInput {
   estimated_minutes?: number | null;
 }
 
-export function useDailyReport(date: string) {
+// viewUserId: Admin이 다른 계정의 데이터를 조회할 때 그 계정의 user_id (KAN-26, 조회 전용).
+// 쓰기 정책은 소유자 전용이라 조회 모드에서의 수정 시도는 DB가 거부하고 recover()가 화면을 되돌린다.
+export function useDailyReport(date: string, viewUserId: string | null = null) {
   const supabase = useRef(createClient()).current;
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [viewProfiles, setViewProfiles] = useState<Profile[]>([]);
 
   const [entries, setEntries] = useState<EntryWithRelations[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -108,38 +113,69 @@ export function useDailyReport(date: string) {
     const prevDate = format(addDays(d, -1), "yyyy-MM-dd");
     const nextDate = format(addDays(d, 1), "yyyy-MM-dd");
     try {
+      // 사용자/admin 여부를 먼저 확정해야 조회 대상(target)을 정할 수 있다 (KAN-26)
+      const userRes = await supabase.auth.getUser();
+      const uid = userRes.data.user?.id ?? null;
+      setUserId(uid);
+      setUserEmail(userRes.data.user?.email ?? null);
+
+      // admin_users는 본인 행만 SELECT 가능 — 행이 있으면 admin.
+      // 테이블이 없거나(마이그레이션 미적용) 오류면 admin 아님으로 처리한다.
+      const adminRes = await supabase
+        .from("admin_users")
+        .select("user_id")
+        .maybeSingle();
+      const admin = !adminRes.error && !!adminRes.data;
+      setIsAdmin(admin);
+
+      // Admin이 다른 계정을 선택하면 그 계정 데이터를 조회 (RLS가 SELECT만 허용)
+      const target = admin && viewUserId ? viewUserId : uid;
+
       const [
         entriesRes,
         tasksRes,
         projectsRes,
         subtypesRes,
         prefsRes,
-        userRes,
         adjacentRes,
+        profilesRes,
       ] = await Promise.all([
           supabase
             .from("entries")
             .select(ENTRY_SELECT)
+            .eq("user_id", target)
             .eq("report_date", date)
             .order("start_at", { ascending: true }),
           supabase
             .from("tasks")
             .select("*")
+            .eq("user_id", target)
             .is("deleted_at", null)
             .order("created_at"),
           supabase
             .from("projects")
             .select("*")
+            .eq("user_id", target)
             .is("deleted_at", null)
             .order("created_at"),
-          supabase.from("subtypes").select("*").eq("archived", false).order("name"),
+          supabase
+            .from("subtypes")
+            .select("*")
+            .eq("user_id", target)
+            .eq("archived", false)
+            .order("name"),
+          // 컬럼 폭 등 UI 설정은 항상 본인 것 사용
           supabase.from("user_preferences").select("*").maybeSingle(),
-          supabase.auth.getUser(),
           // 이전/다음 날 collapsed preview용 요약
           supabase
             .from("entries")
             .select("report_date, start_at, end_at")
+            .eq("user_id", target)
             .in("report_date", [prevDate, nextDate]),
+          // 계정 셀렉터용 프로필 목록 (admin일 때만 의미 있음)
+          admin
+            ? supabase.from("profiles").select("*").order("email")
+            : Promise.resolve({ data: null, error: null }),
         ]);
 
       const firstError =
@@ -159,8 +195,7 @@ export function useDailyReport(date: string) {
       setColumnWidths(
         (prefsRes.data?.column_widths as Record<string, number>) ?? {}
       );
-      setUserId(userRes.data.user?.id ?? null);
-      setUserEmail(userRes.data.user?.email ?? null);
+      setViewProfiles(admin ? ((profilesRes.data ?? []) as Profile[]) : []);
 
       const adjacent = (adjacentRes.data ?? []) as Pick<
         Entry,
@@ -175,7 +210,7 @@ export function useDailyReport(date: string) {
       console.error(e);
       setError("데이터를 불러오지 못했습니다. 네트워크 상태를 확인해주세요.");
     }
-  }, [supabase, date]);
+  }, [supabase, date, viewUserId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -867,6 +902,10 @@ export function useDailyReport(date: string) {
     saving: pendingOps > 0,
     userId,
     userEmail,
+    // Admin 조회 모드 (KAN-26)
+    isAdmin,
+    viewProfiles,
+    viewingOther: isAdmin && !!viewUserId && viewUserId !== userId,
     entries,
     tasks,
     projects,

@@ -3,6 +3,35 @@
 -- 이 파일은 supabase/migrations/ 전체를 반영한 단일 파일입니다.
 
 -- ============================================================
+-- 0. admin_users + is_admin() (KAN-26 Admin 조회 모드)
+--    admin 조회 정책은 파일 끝 10번 섹션에서 추가한다 (기존 정책과 OR 결합).
+--    Admin은 SELECT만 확장되며 쓰기 정책은 소유자 전용 그대로 (구조적 조회 전용).
+--    🚨 실서비스 전환 시 admin_users의 모든 행을 삭제할 것.
+-- ============================================================
+create table if not exists public.admin_users (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+alter table public.admin_users enable row level security;
+
+create policy admin_users_self_select
+on public.admin_users for select
+using (auth.uid() = user_id);
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select exists (
+    select 1 from public.admin_users where user_id = auth.uid()
+  );
+$$;
+
+-- ============================================================
 -- 1. profiles
 -- ============================================================
 create table if not exists public.profiles (
@@ -331,3 +360,17 @@ with check (auth.uid() = user_id);
 create policy "Users can delete own preferences"
 on public.user_preferences for delete
 using (auth.uid() = user_id);
+
+-- ============================================================
+-- 10. Admin 조회 정책 (KAN-26) — 기존 소유자 SELECT 정책과 OR 결합
+--     쓰기 정책은 확장하지 않는다 (Admin은 구조적 조회 전용).
+--     user_preferences는 제외 (본인 설정만 사용).
+-- ============================================================
+create policy admin_select_profiles on public.profiles for select using (public.is_admin());
+create policy admin_select_projects on public.projects for select using (public.is_admin());
+create policy admin_select_subtypes on public.subtypes for select using (public.is_admin());
+create policy admin_select_tasks on public.tasks for select using (public.is_admin());
+create policy admin_select_entries on public.entries for select using (public.is_admin());
+create policy admin_select_entry_tasks on public.entry_tasks for select using (public.is_admin());
+create policy admin_select_entry_links on public.entry_links for select using (public.is_admin());
+create policy admin_select_kpt_notes on public.kpt_notes for select using (public.is_admin());

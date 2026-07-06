@@ -2,7 +2,7 @@
 
 ## 상태
 
-Proposed (구현 전 설계 확정, 구현은 후속 묶음)
+Accepted (2026-07-06 구현 — migration 0006, `useDailyReport(date, viewUserId)`, TopBar 계정 셀렉터)
 
 ## 맥락
 

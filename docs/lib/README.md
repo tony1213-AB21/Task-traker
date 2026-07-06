@@ -40,3 +40,4 @@
 - 2026-07-05: KPT+ 소프트 삭제 추가 (KAN-23)
 - 2026-07-06: analytics 트래킹 유틸 추가 (KAN-12)
 - 2026-07-06: 동일 content 연속 Entry 일괄 Done 처리 (KAN-27)
+- 2026-07-06: Admin 조회 모드 — useDailyReport(date, viewUserId), 조회 전용 (KAN-26, ADR 0003)
