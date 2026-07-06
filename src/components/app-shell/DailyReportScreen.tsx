@@ -19,8 +19,10 @@ export default function DailyReportScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<RightPanelTab>("detail");
   const [search, setSearch] = useState("");
+  // Admin 조회 모드: 선택한 계정의 데이터를 조회 전용으로 본다 (KAN-26)
+  const [viewUserId, setViewUserId] = useState<string | null>(null);
 
-  const report = useDailyReport(date);
+  const report = useDailyReport(date, viewUserId);
 
   // login_completed: OAuth 콜백이 붙인 ?login=1을 감지해 1회 발화 후 제거 (KAN-13)
   useEffect(() => {
@@ -111,7 +113,20 @@ export default function DailyReportScreen() {
             setTab("detail");
           }
         }}
+        isAdmin={report.isAdmin}
+        viewProfiles={report.viewProfiles}
+        viewUserId={viewUserId}
+        onViewUser={(id) => {
+          setViewUserId(id);
+          setSelectedId(null);
+        }}
       />
+      {report.viewingOther && (
+        <div className="flex-none border-b border-[#f0e4cf] bg-[#fbf6ee] px-4 py-1.5 text-[12px] text-[#77621f]">
+          조회 전용 — 다른 계정의 데이터를 보고 있습니다. 이 화면에서의 수정
+          시도는 저장되지 않습니다.
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
         <main className="min-w-0 flex-1 overflow-hidden p-3 pr-0">
           <EntryTable

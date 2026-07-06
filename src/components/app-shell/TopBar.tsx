@@ -13,7 +13,7 @@ import {
   Search,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Entry } from "@/lib/types/database";
+import type { Entry, Profile } from "@/lib/types/database";
 import {
   fmtDateLabel,
   fmtHuman,
@@ -32,6 +32,11 @@ interface TopBarProps {
   entries: Pick<Entry, "start_at" | "end_at">[];
   userEmail: string | null;
   onAddEntry: () => void;
+  // Admin 조회 모드 (KAN-26): admin일 때만 계정 셀렉터 노출
+  isAdmin: boolean;
+  viewProfiles: Profile[];
+  viewUserId: string | null;
+  onViewUser: (id: string | null) => void;
 }
 
 export default function TopBar({
@@ -45,6 +50,10 @@ export default function TopBar({
   entries,
   userEmail,
   onAddEntry,
+  isAdmin,
+  viewProfiles,
+  viewUserId,
+  onViewUser,
 }: TopBarProps) {
   const router = useRouter();
   const tracked = trackedMinutes(entries);
@@ -118,6 +127,23 @@ export default function TopBar({
           className="w-full rounded-lg border border-line bg-surface-alt py-1.5 pl-7 pr-2 text-[12.5px] text-ink outline-none transition focus:border-primary focus:bg-surface focus:shadow-[0_0_0_3px_rgba(94,106,210,0.16)]"
         />
       </div>
+
+      {/* Admin 계정 셀렉터: 어떤 계정의 데이터를 볼지 선택 (조회 전용, KAN-26) */}
+      {isAdmin && viewProfiles.length > 0 && (
+        <select
+          value={viewUserId ?? ""}
+          onChange={(e) => onViewUser(e.target.value || null)}
+          title="Admin: 조회할 계정 선택"
+          className="max-w-[180px] rounded-lg border border-line bg-surface-alt px-2 py-1.5 text-[12px] text-ink outline-none transition focus:border-primary"
+        >
+          <option value="">내 데이터</option>
+          {viewProfiles.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.display_name || p.email || p.id.slice(0, 8)}
+            </option>
+          ))}
+        </select>
+      )}
 
       <span
         className="flex w-[72px] items-center gap-1 text-[11.5px] text-ink-faint"

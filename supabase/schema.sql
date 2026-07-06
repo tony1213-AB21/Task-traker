@@ -3,6 +3,35 @@
 -- 이 파일은 supabase/migrations/ 전체를 반영한 단일 파일입니다.
 
 -- ============================================================
+-- 0. admin_users + is_admin() (KAN-26 Admin 조회 모드)
+--    아래 SELECT 정책들이 is_admin()을 참조하므로 가장 먼저 정의한다.
+--    Admin은 SELECT만 확장되며 쓰기 정책은 소유자 전용 그대로 (구조적 조회 전용).
+--    🚨 실서비스 전환 시 admin_users의 모든 행을 삭제할 것.
+-- ============================================================
+create table if not exists public.admin_users (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
+alter table public.admin_users enable row level security;
+
+create policy "Users can view own admin row"
+on public.admin_users for select
+using (auth.uid() = user_id);
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = ''
+stable
+as $$
+  select exists (
+    select 1 from public.admin_users where user_id = auth.uid()
+  );
+$$;
+
+-- ============================================================
 -- 1. profiles
 -- ============================================================
 create table if not exists public.profiles (
@@ -17,7 +46,7 @@ alter table public.profiles enable row level security;
 
 create policy "Users can view own profile"
 on public.profiles for select
-using (auth.uid() = id);
+using (auth.uid() = id or public.is_admin());
 
 create policy "Users can insert own profile"
 on public.profiles for insert
@@ -70,7 +99,7 @@ alter table public.projects enable row level security;
 
 create policy "Users can view own projects"
 on public.projects for select
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or public.is_admin());
 
 create policy "Users can insert own projects"
 on public.projects for insert
@@ -104,7 +133,7 @@ alter table public.subtypes enable row level security;
 
 create policy "Users can view own subtypes"
 on public.subtypes for select
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or public.is_admin());
 
 create policy "Users can insert own subtypes"
 on public.subtypes for insert
@@ -144,7 +173,7 @@ alter table public.tasks enable row level security;
 
 create policy "Users can view own tasks"
 on public.tasks for select
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or public.is_admin());
 
 create policy "Users can insert own tasks"
 on public.tasks for insert
@@ -186,7 +215,7 @@ alter table public.entries enable row level security;
 
 create policy "Users can view own entries"
 on public.entries for select
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or public.is_admin());
 
 create policy "Users can insert own entries"
 on public.entries for insert
@@ -216,7 +245,7 @@ alter table public.entry_tasks enable row level security;
 
 create policy "Users can view own entry_tasks"
 on public.entry_tasks for select
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or public.is_admin());
 
 create policy "Users can insert own entry_tasks"
 on public.entry_tasks for insert
@@ -249,7 +278,7 @@ alter table public.entry_links enable row level security;
 
 create policy "Users can view own entry_links"
 on public.entry_links for select
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or public.is_admin());
 
 create policy "Users can insert own entry_links"
 on public.entry_links for insert
@@ -286,7 +315,7 @@ alter table public.kpt_notes enable row level security;
 
 create policy "Users can view own kpt_notes"
 on public.kpt_notes for select
-using (auth.uid() = user_id);
+using (auth.uid() = user_id or public.is_admin());
 
 create policy "Users can insert own kpt_notes"
 on public.kpt_notes for insert
